@@ -14,7 +14,7 @@
    npm install
    ```
 
-3. Create a `.env` file in the root folder and paste the necessary keys.
+3. Create a `.env` file in the root folder and paste the necessary keys DATABASE_URL, VERIFY_API, HTTP_PORT, WS_PORT
 
 4. To start the server, run:
 
