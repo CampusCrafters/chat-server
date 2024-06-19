@@ -4,8 +4,16 @@ import WebSocket from "ws";
 import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
 import axios from "axios";
+import cors from 'cors';
 
+const corsOptions = {
+    origin: ["http://localhost:5173", "https://campustown.in"],
+    credentials: true,
+  };
+  
 const app = express();
+app.use(cors(corsOptions));
+app.use(express.json());
 app.use(cookieParser());
 const HTTP_PORT = process.env.HTTP_PORT;
 const WS_PORT = process.env.WS_PORT as unknown as number;
@@ -49,7 +57,7 @@ wss.on("connection", async (ws: WebSocket, req: any) => {
     return;
   }
 
-  let username = user.name;
+  let username = user.name.replace(" -IIITK", "");
   clients.set(username, ws);
   console.log(`User ${username} connected`);
 
@@ -77,23 +85,44 @@ wss.on("connection", async (ws: WebSocket, req: any) => {
   });
 });
 
-// Endpoint to retrieve chat history for a specific user
-app.get("/chat/history/:userId", async (req, res) => {
-  const userId = req.params.userId;
+app.get("/chat/:contact", async (req, res) => {
+  const token = req.cookies.jwt;
+  const user = await authenticateJWT(token);
+  if (!user) {
+    res.status(401).json({ error: "Token invalid" });
+    return;
+  }
+  const username = user.name.replace(" -IIITK", "");
+  const contactName = req.params.contact.replace(/^:\s*/, "").trim();
   try {
-    const messages = await Message.find({
-      $or: [{ from: userId }, { to: userId }],
-    }).sort({ timestamp: 1 });
+    const messages = await getConversation(contactName, username);
     res.json(messages);
-  } catch (error) {
-    console.error("Error retrieving chat history:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+  } catch (error: any) {
+    console.error(`Error retrieving conversations`, error.message);
+    return [];
   }
 });
 
 app.listen(HTTP_PORT, () => {
   console.log(`HTTP server running on port ${HTTP_PORT}`);
 });
+
+/***************************************************************************************************/
+
+const getConversation = async (contact: string, username: string) => {
+    try {
+        const messages = await Message.find({
+        $or: [
+            { from: username, to: contact },
+            { from: contact, to: username },
+        ],
+        }).sort({ timestamp: 1 });
+        return messages;
+    } catch (error) {
+        console.error("Error retrieving conversation from MongoDB:", error);
+        return [];
+    }
+}
 
 const deliverStoredMessagesFromDb = async (username: string, ws: WebSocket) => {
   try {
@@ -137,6 +166,7 @@ const handleMessage = async (username: string, data: any) => {
 };
 
 const authenticateJWT = async (token: string) => {
+  console.log("reach autheticate JWT", token);
   try {
     const response = await axios.post(VERIFY_API, { token: token });
     return response.data.decoded;
