@@ -65,7 +65,6 @@ wss.on("connection", async (ws: WebSocket, req: any) => {
   clients.set(username, ws);
   console.log(`User ${username} connected`);
 
-  //await deliverStoredMessagesFromDb(username, ws);
   await deliverQueuedMessages(username, ws);
 
   ws.on("message", async (message: string) => {
@@ -128,6 +127,7 @@ const getConversation = async (contact: string, username: string) => {
     return [];
   }
 };
+
 const handleMessage = async (username: string, data: any) => {
   const { to, message } = data;
   const recipientWs = clients.get(to);
@@ -149,20 +149,15 @@ const handleMessage = async (username: string, data: any) => {
 const deliverQueuedMessages = async (username: string, ws: WebSocket) => {
   try {
     while (true) {
-      // Fetch a message from the user's Redis list
       const message = await redisClient.rPop(`messages:${username}`);
-
-      // If there are no more messages, break the loop
       if (!message) {
         break;
       }
-
-      // Send the message via WebSocket
       ws.send(message);
     }
+    console.log(`Delivered queued messages to ${username}`)
   } catch (error) {
     console.error(`Error delivering messages to ${username}:`, error);
-    // Optionally, handle the error (e.g., logging, retrying, etc.)
   }
 };
 
@@ -175,20 +170,3 @@ const authenticateJWT = async (token: string) => {
     return null;
   }
 }
-
-// const deliverStoredMessagesFromDb = async (username: string, ws: WebSocket) => {
-//   try {
-//     const messages = await Message.find({ to: username }).sort({
-//       timestamp: 1,
-//     });
-//     if (ws.readyState === WebSocket.OPEN) {
-//       messages.forEach((message) => {
-//         ws.send(JSON.stringify(message));
-//       });
-//     } else {
-//       console.error("WebSocket is not open: ", ws.readyState);
-//     }
-//   } catch (error) {
-//     console.error("Error retrieving stored messages from MongoDB:", error);
-//   }
-// };
