@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import axios from "axios";
 import cors from "cors";
 import { createClient } from "redis";
+import url from "url";
 
 const corsOptions = {
   origin: ["http://localhost:5173", "https://campustown.in"],
@@ -39,8 +40,8 @@ const redisClient = createClient({
   await redisClient.connect();
 })();
 
-redisClient.on('connect', () => console.log('::> Redis Client Connected'));
-redisClient.on('error', (err) => console.log('<:: Redis Client Error', err));
+redisClient.on("connect", () => console.log("::> Redis Client Connected"));
+redisClient.on("error", (err) => console.log("<:: Redis Client Error", err));
 const wss = new WebSocket.Server({ port: WS_PORT });
 console.log(`WebSocket server started on port ${WS_PORT}`);
 
@@ -50,7 +51,11 @@ wss.on("connection", async (ws: WebSocket, req: any) => {
   ws.on("error", (err) => {
     console.error("WebSocket error:", err);
   });
-  const token = req.headers.jwt;
+
+  const queryParams = url.parse(req.url, true).query;
+  const token = queryParams.token as string;
+  console.log("Token:", token);
+  
   if (!token) {
     ws.close(4002, "No JWT token");
     return;
@@ -97,7 +102,8 @@ app.get("/chat/:contact", async (req, res) => {
     return;
   }
   const username = user.name.replace(" -IIITK", "");
-  const contactName = req.params.contact.replace(/^:\s*/, "").trim();
+  const contactName = req.params.contact.substring(1);
+  console.log(`User ${username} requested conversation with ${contactName}`);
   try {
     const messages = await getConversation(contactName, username);
     res.json(messages);
@@ -142,7 +148,9 @@ const handleMessage = async (username: string, data: any) => {
     recipientWs.send(JSON.stringify(JSON.stringify(newMessage)));
   } else {
     await redisClient.lPush(`messages:${to}`, JSON.stringify(newMessage));
-    console.log(`User ${data.to} is offline, message pushed to queue and stored in MongoDB`);
+    console.log(
+      `User ${data.to} is offline, message pushed to queue and stored in MongoDB`
+    );
   }
 };
 
@@ -155,7 +163,7 @@ const deliverQueuedMessages = async (username: string, ws: WebSocket) => {
       }
       ws.send(message);
     }
-    console.log(`Delivered queued messages to ${username}`)
+    console.log(`Delivered queued messages to ${username}`);
   } catch (error) {
     console.error(`Error delivering messages to ${username}:`, error);
   }
@@ -169,4 +177,4 @@ const authenticateJWT = async (token: string) => {
     console.error("Error verifying JWT:", error.message);
     return null;
   }
-}
+};
