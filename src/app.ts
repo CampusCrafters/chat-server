@@ -13,6 +13,9 @@ const corsOptions = {
   credentials: true,
 };
 
+const clientOptions = { serverApi: { version: '1', strict: true, deprecationErrors: true } };
+const uri = "mongodb+srv://mramki1803:Xyz12318032006*@chat-server.fqi0k36.mongodb.net/?retryWrites=true&w=majority&appName=chat-server";
+
 const app = express();
 app.use(cors(corsOptions));
 app.use(express.json());
@@ -23,7 +26,18 @@ const DATABASE_URL = process.env.DATABASE_URL;
 const VERIFY_API = process.env.VERIFY_API as string;
 const redisUrl = process.env.REDIS_URL;
 
-mongoose.connect(`${DATABASE_URL}`);
+async function run() {
+  try {
+    // Create a Mongoose client with a MongoClientOptions object to set the Stable API version
+    await mongoose.connect(uri, { ...clientOptions, serverApi: "1" });
+    await mongoose.connection.db.admin().command({ ping: 1 });
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+  } catch (e) {
+    console.error("Error connecting to MongoDB:", e);
+  }
+}
+run().catch(console.dir);
+
 const Schema = mongoose.Schema;
 const messageSchema = new Schema({
   from: String,
@@ -54,7 +68,7 @@ wss.on("connection", async (ws: WebSocket, req: any) => {
 
   const queryParams = url.parse(req.url, true).query;
   const token = queryParams.token as string;
-  console.log("Token:", token);
+  //console.log("Token:", token);
   
   if (!token) {
     ws.close(4002, "No JWT token");
@@ -76,6 +90,7 @@ wss.on("connection", async (ws: WebSocket, req: any) => {
     let data;
     try {
       data = JSON.parse(message);
+      console.log(`Received message from ${username}:`, data);
     } catch (error: any) {
       console.error("Error parsing message:", error.message);
       return;
@@ -137,15 +152,17 @@ const getConversation = async (contact: string, username: string) => {
 const handleMessage = async (username: string, data: any) => {
   const { to, message } = data;
   const recipientWs = clients.get(to);
+  const timestamp = new Date().toISOString();
   const newMessage = new Message({
     from: username,
-    to,
-    message,
+    message: message,
+    timestamp: timestamp,
+    to: to,
   });
   await newMessage.save();
 
   if (recipientWs && recipientWs.readyState === WebSocket.OPEN) {
-    recipientWs.send(JSON.stringify(JSON.stringify(newMessage)));
+    recipientWs.send(JSON.stringify(newMessage));
   } else {
     await redisClient.lPush(`messages:${to}`, JSON.stringify(newMessage));
     console.log(
