@@ -2,7 +2,7 @@
 
 ## Settin up locally
 
-1. Start the main backedn server from https://github.com/CampusCrafters/campustown_backend
+1. Start the main backend server from https://github.com/CampusCrafters/campustown_backend
    
 2. Clone the repository:
 
