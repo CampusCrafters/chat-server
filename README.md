@@ -2,21 +2,23 @@
 
 ## Settin up locally
 
-1. Clone the repository:
+1. Start the main backedn server from https://github.com/CampusCrafters/campustown_backend
+   
+2. Clone the repository:
 
    ```
    git clone -b main https://github.com/CampusCrafters/chat-server.git
    ```
 
-2. Install dependencies:
+3. Install dependencies:
 
    ```
    npm install
    ```
 
-3. Create a `.env` file in the root folder and paste the necessary keys 
+4. Create a `.env` file in the root folder and paste the necessary keys 
 
-4. To start the server, run:
+5. To start the server, run:
 
    ```
    npm start
